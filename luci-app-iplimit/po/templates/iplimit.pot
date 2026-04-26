@@ -1,0 +1,179 @@
+msgid ""
+msgstr "Content-Type: text/plain; charset=UTF-8"
+
+#: htdocs/luci-static/resources/view/iplimit/settings.js:20
+msgid "IP Limit"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/iplimit/settings.js:21
+msgid "Per-IP bandwidth control based on tc HTB + ifb."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/iplimit/settings.js:26
+msgid "Global Settings"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/iplimit/settings.js:30
+#: htdocs/luci-static/resources/view/iplimit/settings.js:52
+msgid "Enable"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/iplimit/settings.js:34
+msgid "Interface"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/iplimit/settings.js:35
+msgid "Network interface for traffic control."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/iplimit/settings.js:39
+msgid "Total Bandwidth"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/iplimit/settings.js:40
+msgid "Total available bandwidth, e.g. 1000mbit, 500mbit."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/iplimit/settings.js:45
+msgid "Host Rules"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/iplimit/settings.js:49
+msgid "Add Host"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/iplimit/settings.js:50
+msgid "Edit Host"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/iplimit/settings.js:57
+msgid "Name"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/iplimit/settings.js:61
+msgid "IP Address"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/iplimit/settings.js:66
+msgid "Download"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/iplimit/settings.js:72
+#: htdocs/luci-static/resources/view/iplimit/settings.js:88
+msgid "Format: number + unit (kbit/mbit/gbit)"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/iplimit/settings.js:76
+msgid "DL Mode"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/iplimit/settings.js:77
+#: htdocs/luci-static/resources/view/iplimit/settings.js:93
+msgid "Limit"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/iplimit/settings.js:78
+#: htdocs/luci-static/resources/view/iplimit/settings.js:94
+msgid "Guard"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/iplimit/settings.js:82
+msgid "Upload"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/iplimit/settings.js:92
+msgid "UL Mode"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/iplimit/settings.js:122
+msgid "Configuration saved. Service restarted."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/iplimit/settings.js:125
+msgid "Failed: "
+msgstr ""
+
+#: htdocs/luci-static/resources/view/iplimit/status.js:9
+msgid "Running"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/iplimit/status.js:11
+msgid "Stopped"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/iplimit/status.js:85
+#: htdocs/luci-static/resources/view/iplimit/status.js:182
+msgid "No data"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/iplimit/status.js:89
+msgid "Class"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/iplimit/status.js:90
+msgid "Type"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/iplimit/status.js:91
+msgid "Rate"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/iplimit/status.js:92
+msgid "Ceil"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/iplimit/status.js:93
+msgid "Sent"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/iplimit/status.js:94
+msgid "Packets"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/iplimit/status.js:95
+msgid "Dropped"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/iplimit/status.js:96
+msgid "Overlimits"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/iplimit/status.js:200
+msgid "Config Overview (Raw)"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/iplimit/status.js:209
+msgid "IP Limit - Status"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/iplimit/status.js:212
+msgid "Service Status"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/iplimit/status.js:214
+msgid "Status"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/iplimit/status.js:220
+msgid "Service restarted."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/iplimit/status.js:223
+msgid "Restart"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/iplimit/status.js:228
+msgid "Service stopped."
+msgstr ""
+
+#: htdocs/luci-static/resources/view/iplimit/status.js:231
+msgid "Stop"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/iplimit/status.js:236
+msgid "Download Rules (br-lan)"
+msgstr ""
+
+#: htdocs/luci-static/resources/view/iplimit/status.js:241
+msgid "Upload Rules (ifb0)"
+msgstr ""
