@@ -1,0 +1,158 @@
+# luci-app-iplimit
+
+OpenWrt per-IP bandwidth control with LuCI web interface, based on tc HTB + ifb.
+
+Designed for side routers with a single `br-lan` interface.
+
+## Features
+
+- Per-IP upload/download bandwidth control
+- Two modes per direction: **Limit** (hard cap) / **Guard** (guaranteed bandwidth, burst to total)
+- LuCI web UI: settings page with inline editing, real-time status with parsed tc stats
+- Auto-restart service on save
+- Dark mode compatible (argon theme)
+
+## Screenshots
+
+### Settings
+Manage host rules with per-IP bandwidth and mode configuration.
+
+### Status
+Real-time tc class statistics, service control, collapsible raw config view.
+
+## Quick Deploy (without SDK)
+
+```bash
+# Deploy to router via SSH (default IP: 10.168.1.22)
+./deploy.sh 10.168.1.22
+```
+
+Requires: `kmod-ifb`, `tc-full` installed on the router.
+
+```bash
+apk add kmod-ifb tc-full
+```
+
+## Build APK Package
+
+Requires OpenWrt SDK (Linux x86-64). Use Docker on macOS.
+
+### 1. Download SDK
+
+```bash
+# Example for OpenWrt 23.05 x86-64, adjust version to match your router
+SDK_URL="https://downloads.openwrt.org/releases/23.05.5/targets/x86/64/openwrt-sdk-23.05.5-x86-64_gcc-12.3.0_musl.Linux-x86_64.tar.xz"
+wget "$SDK_URL"
+tar xf openwrt-sdk-*.tar.xz
+cd openwrt-sdk-*
+```
+
+### 2. Add package source
+
+```bash
+# Copy luci-app-iplimit into SDK package directory
+cp -r /path/to/luci-app-iplimit package/
+```
+
+### 3. Update feeds
+
+```bash
+./scripts/feeds update -a
+./scripts/feeds install -a
+```
+
+### 4. Build
+
+```bash
+make package/luci-app-iplimit/compile V=s
+```
+
+### 5. Find output
+
+```bash
+find bin/ -name "luci-app-iplimit*"
+```
+
+### 6. Install on router
+
+```bash
+# Copy to router and install
+scp bin/packages/*/base/luci-app-iplimit*.apk root@10.168.1.22:/tmp/
+ssh root@10.168.1.22 "apk add --allow-untrusted /tmp/luci-app-iplimit*.apk"
+```
+
+## Configuration
+
+Edit `/etc/config/iplimit.conf` or use LuCI web UI (Network -> IP Limit).
+
+```
+config globals 'globals'
+    option iface 'br-lan'
+    option enabled '1'
+    option total_bandwidth '1000mbit'
+
+config host 'pc1'
+    option name 'PC-1'
+    option ip '192.168.1.100'
+    option download '20mbit'
+    option download_mode 'ceil'
+    option upload '5mbit'
+    option upload_mode 'ceil'
+    option enabled '1'
+```
+
+### Mode Reference
+
+| Mode | tc rate | tc ceil | Effect |
+|------|---------|---------|--------|
+| `ceil` (Limit) | value | value | Hard cap, cannot exceed |
+| `rate` (Guard) | value | total_bandwidth | Guaranteed minimum, can burst when idle |
+
+Upload and download modes are independent. Example: guaranteed 10M download, hard limit 3M upload:
+
+```
+option download '10mbit'
+option download_mode 'rate'
+option upload '3mbit'
+option upload_mode 'ceil'
+```
+
+## CLI Usage
+
+```bash
+/etc/init.d/iplimit start       # Start
+/etc/init.d/iplimit stop        # Stop
+/etc/init.d/iplimit restart     # Restart (after config change)
+/etc/init.d/iplimit status      # Show rules and statistics
+
+# UCI commands
+uci set iplimit.pc1.download='30mbit'
+uci commit iplimit
+/etc/init.d/iplimit restart
+```
+
+## Project Structure
+
+```
+├── deploy.sh                          # Quick deploy script
+├── luci-app-iplimit/
+│   ├── Makefile                       # OpenWrt SDK build file
+│   ├── htdocs/luci-static/resources/view/iplimit/
+│   │   ├── settings.js                # LuCI settings page
+│   │   └── status.js                  # LuCI status page
+│   └── root/
+│       ├── etc/config/iplimit.conf    # Default UCI config
+│       ├── etc/init.d/iplimit         # Init script (tc HTB + ifb)
+│       └── usr/share/
+│           ├── luci/menu.d/luci-app-iplimit.json   # Menu entry
+│           └── rpcd/acl.d/luci-app-iplimit.json    # ACL permissions
+```
+
+## Dependencies
+
+- `kmod-ifb` - IFB kernel module for ingress traffic shaping
+- `tc-full` - tc command for traffic control
+
+## License
+
+GPL-3.0-or-later

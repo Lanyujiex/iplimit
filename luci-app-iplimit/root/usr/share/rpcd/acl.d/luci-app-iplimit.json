@@ -1,0 +1,23 @@
+{
+    "luci-app-iplimit": {
+        "description": "Grant access to IP Limit",
+        "read": {
+            "uci": [ "iplimit" ],
+            "ubus": {
+                "file": [ "exec", "read", "stat" ],
+                "service": [ "list" ]
+            },
+            "file": {
+                "/etc/config/iplimit.conf": [ "read" ],
+                "/etc/init.d/iplimit": [ "exec" ],
+                "/sbin/tc": [ "exec" ]
+            }
+        },
+        "write": {
+            "uci": [ "iplimit" ],
+            "file": {
+                "/etc/config/iplimit.conf": [ "write" ]
+            }
+        }
+    }
+}

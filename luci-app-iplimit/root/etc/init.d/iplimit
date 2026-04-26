@@ -1,0 +1,210 @@
+#!/bin/sh /etc/rc.common
+
+START=99
+STOP=10
+
+IFACE=""
+CLASSID=10
+TOTAL=""
+TOTAL_KBIT=0
+RESERVED_DL_KBIT=0
+RESERVED_UL_KBIT=0
+
+# 将带宽字符串转为 kbit 数值（如 20mbit -> 20000, 500kbit -> 500）
+to_kbit() {
+    local val="$1"
+    local num unit
+    num=$(echo "$val" | sed 's/[^0-9]//g')
+    unit=$(echo "$val" | sed 's/[0-9]//g' | tr 'A-Z' 'a-z')
+    case "$unit" in
+        gbit)  echo $((num * 1000000)) ;;
+        mbit)  echo $((num * 1000)) ;;
+        kbit)  echo "$num" ;;
+        *)     echo "$num" ;;
+    esac
+}
+
+start() {
+    config_load iplimit
+
+    local enabled
+    config_get enabled globals enabled '0'
+    [ "$enabled" = "1" ] || return 0
+
+    config_get IFACE globals iface 'br-lan'
+    config_get TOTAL globals total_bandwidth '1000mbit'
+    TOTAL_KBIT=$(to_kbit "$TOTAL")
+
+    # 第一轮：累加所有保障模式的带宽（上下行分开）
+    RESERVED_DL_KBIT=0
+    RESERVED_UL_KBIT=0
+    config_foreach calc_reserved host
+
+    # 计算默认类的剩余带宽
+    local default_dl_kbit=$((TOTAL_KBIT - RESERVED_DL_KBIT))
+    local default_ul_kbit=$((TOTAL_KBIT - RESERVED_UL_KBIT))
+    [ "$default_dl_kbit" -le 0 ] && default_dl_kbit=1000
+    [ "$default_ul_kbit" -le 0 ] && default_ul_kbit=1000
+
+    # 创建并启用 ifb 设备
+    modprobe ifb 2>/dev/null
+    ip link add ifb0 type ifb 2>/dev/null
+    ip link set ifb0 up
+
+    # 清除旧规则
+    tc qdisc del dev "$IFACE" root 2>/dev/null
+    tc qdisc del dev ifb0 root 2>/dev/null
+    tc qdisc del dev "$IFACE" ingress 2>/dev/null
+
+    # 下载方向：br-lan egress（路由器 -> 客户端）
+    tc qdisc add dev "$IFACE" root handle 1: htb default 9999 r2q 1
+    tc class add dev "$IFACE" parent 1: classid 1:1 htb rate "$TOTAL" quantum 1500
+
+    # 默认类（总带宽减去保障带宽）
+    tc class add dev "$IFACE" parent 1:1 classid 1:9999 htb rate "${default_dl_kbit}kbit" ceil "$TOTAL" quantum 1500
+
+    # 上传方向：ifb0（客户端 -> 路由器，通过 ingress 重定向）
+    tc qdisc add dev "$IFACE" handle ffff: ingress
+    tc filter add dev "$IFACE" parent ffff: protocol ip u32 match u32 0 0 action mirred egress redirect dev ifb0
+
+    tc qdisc add dev ifb0 root handle 2: htb default 9999 r2q 1
+    tc class add dev ifb0 parent 2: classid 2:1 htb rate "$TOTAL" quantum 1500
+    tc class add dev ifb0 parent 2:1 classid 2:9999 htb rate "${default_ul_kbit}kbit" ceil "$TOTAL" quantum 1500
+
+    # 第二轮：添加每个 IP 的限速规则
+    CLASSID=10
+    config_foreach add_host host
+}
+
+calc_reserved() {
+    local cfg="$1"
+    local host_enabled download upload download_mode upload_mode
+
+    config_get host_enabled "$cfg" enabled '0'
+    [ "$host_enabled" = "1" ] || return 0
+
+    config_get download "$cfg" download
+    config_get upload "$cfg" upload
+    config_get download_mode "$cfg" download_mode 'ceil'
+    config_get upload_mode "$cfg" upload_mode 'ceil'
+
+    if [ "$download_mode" = "rate" ]; then
+        local dl_kbit=$(to_kbit "$download")
+        RESERVED_DL_KBIT=$((RESERVED_DL_KBIT + dl_kbit))
+    fi
+
+    if [ "$upload_mode" = "rate" ]; then
+        local ul_kbit=$(to_kbit "$upload")
+        RESERVED_UL_KBIT=$((RESERVED_UL_KBIT + ul_kbit))
+    fi
+}
+
+add_host() {
+    local cfg="$1"
+    local host_enabled ip download upload download_mode upload_mode
+
+    config_get host_enabled "$cfg" enabled '0'
+    [ "$host_enabled" = "1" ] || return 0
+
+    config_get ip "$cfg" ip
+    config_get download "$cfg" download
+    config_get upload "$cfg" upload
+    config_get download_mode "$cfg" download_mode 'ceil'
+    config_get upload_mode "$cfg" upload_mode 'ceil'
+
+    [ -n "$ip" ] || return 0
+    [ -n "$download" ] || return 0
+    [ -n "$upload" ] || return 0
+
+    # ceil: 只限上限（rate=设定值, ceil=设定值）
+    # rate: 保障带宽（rate=设定值, ceil=总带宽，空闲时可借用）
+    local dl_ceil ul_ceil
+    if [ "$download_mode" = "rate" ]; then
+        dl_ceil="$TOTAL"
+    else
+        dl_ceil="$download"
+    fi
+    if [ "$upload_mode" = "rate" ]; then
+        ul_ceil="$TOTAL"
+    else
+        ul_ceil="$upload"
+    fi
+
+    # 下载限速（br-lan egress）
+    tc class add dev "$IFACE" parent 1:1 classid 1:$CLASSID htb rate "$download" ceil "$dl_ceil" quantum 1500
+    tc qdisc add dev "$IFACE" parent 1:$CLASSID handle $((CLASSID))0: fq_codel
+    tc filter add dev "$IFACE" parent 1: protocol ip u32 match ip dst "$ip"/32 flowid 1:$CLASSID
+
+    # 上传限速（ifb0）
+    tc class add dev ifb0 parent 2:1 classid 2:$CLASSID htb rate "$upload" ceil "$ul_ceil" quantum 1500
+    tc qdisc add dev ifb0 parent 2:$CLASSID handle $((CLASSID + 100))0: fq_codel
+    tc filter add dev ifb0 parent 2: protocol ip u32 match ip src "$ip"/32 flowid 2:$CLASSID
+
+    CLASSID=$((CLASSID + 1))
+}
+
+stop() {
+    config_load iplimit
+    config_get IFACE globals iface 'br-lan'
+
+    tc qdisc del dev "$IFACE" root 2>/dev/null
+    tc qdisc del dev "$IFACE" ingress 2>/dev/null
+    tc qdisc del dev ifb0 root 2>/dev/null
+    ip link set ifb0 down 2>/dev/null
+    ip link del ifb0 2>/dev/null
+}
+
+restart() {
+    stop
+    start
+}
+
+EXTRA_COMMANDS="status"
+EXTRA_HELP="        status  Show current rate limit rules and statistics"
+
+status() {
+    config_load iplimit
+    config_get IFACE globals iface 'br-lan'
+
+    echo "===== Download rules ($IFACE) ====="
+    tc -s class show dev "$IFACE" 2>/dev/null | grep -A3 "class htb"
+    echo ""
+    echo "===== Upload rules (ifb0) ====="
+    tc -s class show dev ifb0 2>/dev/null | grep -A3 "class htb"
+    echo ""
+    echo "===== IP limit config ====="
+    printf "  %-10s  %-16s  %-10s  %-7s  %-10s  %-7s  %s\n" "NAME" "IP" "DOWNLOAD" "DL_MODE" "UPLOAD" "UL_MODE" "STATUS"
+    printf "  %-10s  %-16s  %-10s  %-7s  %-10s  %-7s  %s\n" "----" "--" "--------" "-------" "------" "-------" "------"
+    config_foreach show_host host
+}
+
+show_host() {
+    local cfg="$1"
+    local name ip download upload host_enabled download_mode upload_mode
+
+    config_get host_enabled "$cfg" enabled '0'
+    config_get name "$cfg" name "$cfg"
+    config_get ip "$cfg" ip
+    config_get download "$cfg" download
+    config_get upload "$cfg" upload
+    config_get download_mode "$cfg" download_mode 'ceil'
+    config_get upload_mode "$cfg" upload_mode 'ceil'
+
+    local dl_label ul_label
+    if [ "$download_mode" = "rate" ]; then
+        dl_label="GUARD"
+    else
+        dl_label="LIMIT"
+    fi
+    if [ "$upload_mode" = "rate" ]; then
+        ul_label="GUARD"
+    else
+        ul_label="LIMIT"
+    fi
+
+    if [ "$host_enabled" = "1" ]; then
+        printf "  %-10s  %-16s  %-10s  %-7s  %-10s  %-7s  %s\n" "$name" "$ip" "$download" "$dl_label" "$upload" "$ul_label" "[ON]"
+    else
+        printf "  %-10s  %-16s  %-10s  %-7s  %-10s  %-7s  %s\n" "$name" "$ip" "$download" "$dl_label" "$upload" "$ul_label" "[OFF]"
+    fi
+}
