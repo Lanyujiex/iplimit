@@ -172,12 +172,90 @@ uci commit iplimit
 │   ├── htdocs/luci-static/resources/view/iplimit/
 │   │   ├── settings.js                # LuCI settings page
 │   │   └── status.js                  # LuCI status page
+│   ├── po/
+│   │   ├── templates/iplimit.pot      # Translation template
+│   │   └── zh_Hans/iplimit.po         # Simplified Chinese
 │   └── root/
 │       ├── etc/config/iplimit.conf    # Default UCI config
 │       ├── etc/init.d/iplimit         # Init script (tc HTB + ifb)
 │       └── usr/share/
 │           ├── luci/menu.d/luci-app-iplimit.json   # Menu entry
 │           └── rpcd/acl.d/luci-app-iplimit.json    # ACL permissions
+```
+
+## HTTP API
+
+OpenWrt natively exposes UCI and file operations via ubus JSON-RPC (`POST /ubus`). No additional service needed.
+
+### Authentication
+
+```bash
+# Login to get session token
+curl -s -d '{
+  "jsonrpc": "2.0", "id": 1, "method": "call",
+  "params": ["00000000000000000000000000000000", "session", "login",
+    {"username": "root", "password": "YOUR_PASSWORD"}]
+}' http://ROUTER_IP/ubus
+
+# Response: {"jsonrpc":"2.0","id":1,"result":[0,{"ubus_rpc_session":"TOKEN",...}]}
+```
+
+### Read Config
+
+```bash
+# Get all iplimit config
+curl -s -d '{
+  "jsonrpc": "2.0", "id": 1, "method": "call",
+  "params": ["'$TOKEN'", "uci", "get", {"config": "iplimit"}]
+}' http://ROUTER_IP/ubus
+
+# Get single section
+curl -s -d '{
+  "jsonrpc": "2.0", "id": 1, "method": "call",
+  "params": ["'$TOKEN'", "uci", "get", {"config": "iplimit", "section": "pc1"}]
+}' http://ROUTER_IP/ubus
+```
+
+### Modify Config
+
+```bash
+# Update host
+curl -s -d '{
+  "jsonrpc": "2.0", "id": 1, "method": "call",
+  "params": ["'$TOKEN'", "uci", "set", {"config": "iplimit", "section": "pc1",
+    "values": {"download": "30mbit", "upload": "10mbit"}}]
+}' http://ROUTER_IP/ubus
+
+# Add host
+curl -s -d '{
+  "jsonrpc": "2.0", "id": 1, "method": "call",
+  "params": ["'$TOKEN'", "uci", "add", {"config": "iplimit", "type": "host",
+    "values": {"name": "PC-3", "ip": "192.168.1.103",
+      "download": "50mbit", "download_mode": "ceil",
+      "upload": "10mbit", "upload_mode": "ceil", "enabled": "1"}}]
+}' http://ROUTER_IP/ubus
+
+# Delete host
+curl -s -d '{
+  "jsonrpc": "2.0", "id": 1, "method": "call",
+  "params": ["'$TOKEN'", "uci", "delete", {"config": "iplimit", "section": "pc1"}]
+}' http://ROUTER_IP/ubus
+
+# Commit changes
+curl -s -d '{
+  "jsonrpc": "2.0", "id": 1, "method": "call",
+  "params": ["'$TOKEN'", "uci", "commit", {"config": "iplimit"}]
+}' http://ROUTER_IP/ubus
+```
+
+### Restart Service
+
+```bash
+curl -s -d '{
+  "jsonrpc": "2.0", "id": 1, "method": "call",
+  "params": ["'$TOKEN'", "file", "exec",
+    {"command": "/etc/init.d/iplimit", "params": ["restart"]}]
+}' http://ROUTER_IP/ubus
 ```
 
 ## Dependencies

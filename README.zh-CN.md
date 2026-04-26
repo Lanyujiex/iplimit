@@ -197,6 +197,81 @@ uci commit iplimit
 │           └── rpcd/acl.d/luci-app-iplimit.json    # ACL 权限
 ```
 
+## HTTP API
+
+OpenWrt 原生通过 ubus JSON-RPC 接口（`POST /ubus`）暴露 UCI 和文件操作，无需额外服务。
+
+### 认证
+
+```bash
+# 登录获取 session token
+curl -s -d '{
+  "jsonrpc": "2.0", "id": 1, "method": "call",
+  "params": ["00000000000000000000000000000000", "session", "login",
+    {"username": "root", "password": "你的密码"}]
+}' http://路由器IP/ubus
+
+# 响应: {"jsonrpc":"2.0","id":1,"result":[0,{"ubus_rpc_session":"TOKEN",...}]}
+```
+
+### 读取配置
+
+```bash
+# 获取全部 iplimit 配置
+curl -s -d '{
+  "jsonrpc": "2.0", "id": 1, "method": "call",
+  "params": ["'$TOKEN'", "uci", "get", {"config": "iplimit"}]
+}' http://路由器IP/ubus
+
+# 获取单个 section
+curl -s -d '{
+  "jsonrpc": "2.0", "id": 1, "method": "call",
+  "params": ["'$TOKEN'", "uci", "get", {"config": "iplimit", "section": "pc1"}]
+}' http://路由器IP/ubus
+```
+
+### 修改配置
+
+```bash
+# 修改主机
+curl -s -d '{
+  "jsonrpc": "2.0", "id": 1, "method": "call",
+  "params": ["'$TOKEN'", "uci", "set", {"config": "iplimit", "section": "pc1",
+    "values": {"download": "30mbit", "upload": "10mbit"}}]
+}' http://路由器IP/ubus
+
+# 添加主机
+curl -s -d '{
+  "jsonrpc": "2.0", "id": 1, "method": "call",
+  "params": ["'$TOKEN'", "uci", "add", {"config": "iplimit", "type": "host",
+    "values": {"name": "PC-3", "ip": "192.168.1.103",
+      "download": "50mbit", "download_mode": "ceil",
+      "upload": "10mbit", "upload_mode": "ceil", "enabled": "1"}}]
+}' http://路由器IP/ubus
+
+# 删除主机
+curl -s -d '{
+  "jsonrpc": "2.0", "id": 1, "method": "call",
+  "params": ["'$TOKEN'", "uci", "delete", {"config": "iplimit", "section": "pc1"}]
+}' http://路由器IP/ubus
+
+# 提交变更
+curl -s -d '{
+  "jsonrpc": "2.0", "id": 1, "method": "call",
+  "params": ["'$TOKEN'", "uci", "commit", {"config": "iplimit"}]
+}' http://路由器IP/ubus
+```
+
+### 重启服务
+
+```bash
+curl -s -d '{
+  "jsonrpc": "2.0", "id": 1, "method": "call",
+  "params": ["'$TOKEN'", "file", "exec",
+    {"command": "/etc/init.d/iplimit", "params": ["restart"]}]
+}' http://路由器IP/ubus
+```
+
 ## 依赖
 
 - `kmod-ifb` — IFB 内核模块，用于入站流量整形
