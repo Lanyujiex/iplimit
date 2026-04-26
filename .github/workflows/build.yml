@@ -1,0 +1,80 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  OPENWRT_VERSION: '25.12.2'
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential gawk unzip file wget python3 rsync zstd
+
+      - name: Download and extract SDK
+        run: |
+          BASE_URL="https://downloads.openwrt.org/releases/${OPENWRT_VERSION}/targets/x86/64"
+          SHA_URL="${BASE_URL}/sha256sums"
+          echo "Fetching file list from $SHA_URL"
+          SDK_FILE=$(wget -qO- "$SHA_URL" | grep -oP 'openwrt-sdk-[^\s*]+\.tar\.zst' | head -1)
+          if [ -z "$SDK_FILE" ]; then
+            echo "ERROR: SDK file not found in sha256sums"
+            exit 1
+          fi
+          echo "Found SDK: $SDK_FILE"
+          wget -q "${BASE_URL}/${SDK_FILE}"
+          tar --zstd -xf "$SDK_FILE"
+          mv "${SDK_FILE%.tar.zst}" sdk
+
+      - name: Copy package source
+        run: cp -r luci-app-iplimit sdk/package/
+
+      - name: Update feeds
+        working-directory: sdk
+        run: |
+          ./scripts/feeds update luci
+          ./scripts/feeds install luci-base
+
+      - name: Generate default config
+        working-directory: sdk
+        run: |
+          echo "CONFIG_PACKAGE_luci-app-iplimit=y" >> .config
+          make defconfig
+
+      - name: Build package
+        working-directory: sdk
+        run: |
+          make package/luci-app-iplimit/compile V=s -j$(nproc) CONFIG_AUTOREMOVE=
+          make package/index V=s
+
+      - name: Collect APK
+        run: |
+          mkdir -p output
+          find sdk/bin/ -name "*iplimit*" -type f -exec cp {} output/ \;
+          ls -la output/
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ github.ref_name }}
+          body: |
+            Built for OpenWrt ${{ env.OPENWRT_VERSION }} (x86-64)
+
+            ### Install
+            ```bash
+            apk add kmod-ifb tc-full
+            scp *.apk root@<router_ip>:/tmp/
+            ssh root@<router_ip> "apk add --allow-untrusted /tmp/luci-app-iplimit*.apk /tmp/luci-i18n-iplimit*.apk"
+            ```
+          files: output/*

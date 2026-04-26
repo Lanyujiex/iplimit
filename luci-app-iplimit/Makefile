@@ -8,7 +8,6 @@ PKG_LICENSE:=GPL-3.0-or-later
 PKG_MAINTAINER:=iplimit
 
 LUCI_TITLE:=LuCI support for IP bandwidth limiting
-LUCI_DEPENDS:=+kmod-ifb +tc-full
 LUCI_PKGARCH:=all
 
 include $(TOPDIR)/feeds/luci/luci.mk
