@@ -1,5 +1,7 @@
 # luci-app-iplimit
 
+English | [中文](README.zh-CN.md)
+
 OpenWrt per-IP bandwidth control with LuCI web interface, based on tc HTB + ifb.
 
 Designed for side routers with a single `br-lan` interface.
@@ -124,9 +126,39 @@ option upload_mode 'ceil'
 /etc/init.d/iplimit stop        # Stop
 /etc/init.d/iplimit restart     # Restart (after config change)
 /etc/init.d/iplimit status      # Show rules and statistics
+```
 
-# UCI commands
+### UCI Commands
+
+```bash
+# View current config
+uci show iplimit
+
+# Modify global settings
+uci set iplimit.globals.enabled='1'
+uci set iplimit.globals.iface='br-lan'
+uci set iplimit.globals.total_bandwidth='1000mbit'
+
+# Modify existing host
 uci set iplimit.pc1.download='30mbit'
+uci set iplimit.pc1.download_mode='ceil'
+uci set iplimit.pc1.upload='5mbit'
+uci set iplimit.pc1.upload_mode='rate'
+
+# Add new host
+uci add iplimit host
+uci set iplimit.@host[-1].name='PC-2'
+uci set iplimit.@host[-1].ip='192.168.1.101'
+uci set iplimit.@host[-1].download='50mbit'
+uci set iplimit.@host[-1].download_mode='ceil'
+uci set iplimit.@host[-1].upload='10mbit'
+uci set iplimit.@host[-1].upload_mode='ceil'
+uci set iplimit.@host[-1].enabled='1'
+
+# Delete host
+uci delete iplimit.pc1
+
+# Apply changes
 uci commit iplimit
 /etc/init.d/iplimit restart
 ```
